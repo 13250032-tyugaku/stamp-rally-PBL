@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>戸田市めぐり デジタルスタンプラリー</title>
+  <!-- QRコード読み取り用ライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    :root {
+      --primary-color: #0076a3;
+      --secondary-color: #4caf50;
+      --accent-color: #ff9800;
+      --bg-color: #ffffff;
+      --text-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .container {
+      width: 100%;
+      background: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 84px; /* 下部タブバーと重ならないための余白 */
+    }
+
+    header {
+      width: 100%;
+      background-color: var(--primary-color);
+      color: white;
+      padding: 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 { font-size: 1.15rem; }
+
+    main {
+      width: 100%;
+      padding: 20px 16px;
+      flex: 1;
+    }
+
+    /* 画面切り替え制御 */
+    .view-section { display: none; width: 100%; }
+    .view-section.active { display: block; }
+
+    /* ===== 下部タブナビゲーション（全幅） ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #ffffff;
+      border-top: 1px solid #dcdcdc;
+      display: flex;
+      justify-content: space-around;
+      z-index: 20;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+    }
+
+    .nav-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 10px 4px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: bold;
+      color: #777;
+      cursor: pointer;
+      border-top: 3px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .nav-tab-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .nav-tab.active {
+      color: var(--primary-color);
+      border-top: 3px solid var(--primary-color);
+      background-color: #f4fafe;
+    }
+
+    /* ===== 1. ホームタブ ===== */
+    .home-hero {
+      background: linear-gradient(135deg, #e3f4fc 0%, #f0f9ff 100%);
+      border: 1px solid #bce0fd;
+      border-radius: 16px;
+      padding: 24px 16px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .home-hero h2 {
+      font-size: 1.3rem;
+      color: var(--primary-color);
+      margin-bottom: 8px;
+    }
+
+    .home-hero p {
+      font-size: 0.95rem;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .home-badge {
+      display: inline-block;
+      background: #fff;
+      border: 2px solid var(--primary-color);
+      color: var(--primary-color);
+      font-weight: bold;
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 1rem;
+    }
+
+    .how-to-box {
+      background: #fafafa;
+      border: 1px solid #e6e6e6;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .how-to-box h3 {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 10px;
+      border-left: 4px solid var(--primary-color);
+      padding-left: 8px;
+    }
+
+    .how-to-list {
+      list-style: none;
+      font-size: 0.9rem;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .how-to-list li {
+      margin-bottom: 8px;
+    }
+
+    .how-to-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    .quick-action-btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background-color: var(--primary-color);
+      color: white;
+      font-size: 1.05rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 10px rgba(0, 118, 163, 0.2);
+    }
+
+    /* ===== 2. スタンプ撮影タブ（QRスキャナー） ===== */
+    .tab-title {
+      font-size: 1.15rem;
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .scanner-box {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      margin: 0 auto 16px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 1 / 1;
+    }
+
+    #qrVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .scanner-guide {
+      position: absolute;
+      inset: 18%;
+      border: 3px solid #ffeb3b;
+      border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+    }
+
+    .scanner-note {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #555;
+      line-height: 1.5;
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+
+    /* ===== 3. 記録確認タブ（スタンプ帳） ===== */
+    .progress-card {
+      background: #eef6f9;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .progress-bar-container {
+      background: #d0e4ee;
+      border-radius: 10px;
+      height: 14px;
+      width: 100%;
+      margin: 8px 0 0;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      background-color: var(--secondary-color);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .stamp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .stamp-item {
+      background: white;
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: #999;
+      text-align: center;
+      min-height: 100px;
+    }
+
+    .stamp-item.active {
+      border: 2px solid #e91e63;
+      color: #e91e63;
+      background: #fff0f5;
+      font-weight: bold;
+    }
+
+    .stamp-icon { font-size: 2rem; margin-bottom: 6px; }
+
+    /* ===== 4. スポット詳細＆スタンプ獲得画面 ===== */
+    .spot-card {
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .spot-header {
+      background: #eef6f9;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .spot-category {
+      display: inline-block;
+      background: var(--primary-color);
+      color: white;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+
+    .spot-title { font-size: 1.25rem; color: var(--primary-color); }
+
+    .instruction-note {
+      font-size: 0.85rem;
+      color: #666;
+      margin: 14px 16px 6px;
+    }
+
+    .description-box {
+      height: 180px;
+      overflow-y: scroll;
+      border: 2px dashed #bce0fd;
+      background-color: #fafafa;
+      margin: 0 16px 12px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .checkbox-area {
+      margin: 0 16px 16px;
+      padding: 12px;
+      background: #eef9ff;
+      border: 1px solid #bce0fd;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox-area label {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #00567a;
+      cursor: pointer;
+    }
+
+    .checkbox-area input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .btn-container { padding: 0 16px 16px; }
+
+    .stamp-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background-color: var(--primary-color);
+      color: white;
+      cursor: pointer;
+    }
+
+    .stamp-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+    .stamp-btn.success { background-color: var(--secondary-color); }
+
+    .status-msg {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      text-align: center;
+      font-weight: bold;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>戸田市めぐり デジタルスタンプラリー</h1>
+    </header>
+
+    <main>
+      <!-- ① ホームタブ -->
+      <section id="homeView" class="view-section">
+        <div class="home-hero">
+          <h2>戸田の魅力を再発見しよう！</h2>
+          <p>市内8か所のスポットをめぐり、<br>QRコードを撮影してスタンプを集めよう！</p>
+          <div class="home-badge" id="homeCountBadge">達成率: 0%（0 / 8個）</div>
+        </div>
+
+        <div class="how-to-box">
+          <h3>スタンプの集め方</h3>
+          <ul class="how-to-list">
+            <li><strong>1.</strong> 下の<strong>「📷 スタンプ撮影」</strong>タブからQRコードを読み取ります。</li>
+            <li><strong>2.</strong> スポットの説明文を最後まで読んでチェックを入れます。</li>
+            <li><strong>3.</strong> 現地（50m以内）でボタンを押すとスタンプ獲得！</li>
+          </ul>
+        </div>
+
+        <button class="quick-action-btn" id="homeToScannerBtn">
+          <span>📷</span>
+          <span>さっそくスタンプを撮影する</span>
+        </button>
+      </section>
+
+      <!-- ② スタンプ撮影タブ（QRコードスキャナー） -->
+      <section id="scannerView" class="view-section">
+        <h2 class="tab-title">📷 QRコードを撮影して読み取る</h2>
+        <div class="scanner-box">
+          <video id="qrVideo" playsinline></video>
+          <div class="scanner-guide"></div>
+        </div>
+        <canvas id="qrCanvas" hidden></canvas>
+        <p class="scanner-note" id="scannerStatus">
+          カメラをQRコードに向けてください。<br>枠内に収めると自動で読み取ります。
+        </p>
+      </section>
+
+      <!-- ③ 記録確認タブ（スタンプ帳） -->
+      <section id="bookView" class="view-section">
+        <h2 class="tab-title">💮 集めたスタンプの記録</h2>
+        <div class="progress-card">
+          <div class="progress-text" id="progressText">達成率: 0%（0 / 8個）</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+
+        <div class="stamp-grid" id="stampGrid"></div>
+      </section>
+
+      <!-- ④ スポット詳細＆スタンプ獲得画面（QR読取後に表示） -->
+      <section id="spotView" class="view-section">
+        <div class="spot-card">
+          <div class="spot-header">
+            <span class="spot-category" id="spotCategory">カテゴリ</span>
+            <h2 class="spot-title" id="spotTitle">スポット名</h2>
+          </div>
+
+          <p class="instruction-note">👇 下の説明文を最後までスクロールして読んでください。</p>
+
+          <div class="description-box" id="scrollBox">
+            <div id="spotDescription"></div>
+          </div>
+
+          <div class="checkbox-area">
+            <input type="checkbox" id="readCheckbox" disabled>
+            <label for="readCheckbox" id="checkboxLabel">最後まで読むとチェックできます</label>
+          </div>
+
+          <div class="btn-container">
+            <button id="stampBtn" class="stamp-btn" disabled>チェックを入れると押せます</button>
+            <div id="statusMsg" class="status-msg"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 下部固定タブバー -->
+    <nav class="bottom-nav">
+      <button class="nav-tab active" id="tabHome">
+        <span class="nav-tab-icon">🏠</span>
+        <span>ホーム</span>
+      </button>
+      <button class="nav-tab" id="tabScanner">
+        <span class="nav-tab-icon">📷</span>
+        <span>スタンプ撮影</span>
+      </button>
+      <button class="nav-tab" id="tabBook">
+        <span class="nav-tab-icon">💮</span>
+        <span>記録確認</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    // 戸田市の全8スポットデータ
+    const SPOTS = [
+      { id: 'heibei', category: 'グルメ', name: 'おにぎりや へいべい', icon: '🍙', lat: 35.8123, lng: 139.6820, desc: '戸田公園駅東口すぐのこだわりおにぎり専門店。厳選されたお米とパリッとした海苔、ふんわり握られた温かみのあるおにぎりが大人気です！' },
+      { id: 'chinone', category: 'グルメ', name: '麺屋 茅根', icon: '🍜', lat: 35.8115, lng: 139.6795, desc: '戸田公園駅西口近くにあるラーメン・つけ麺の名店。味わい深い魚介豚骨スープとツルツルの自家製麺が絶品で、地元ファンから長年愛されています。' },
+      { id: 'agara', category: 'グルメ', name: '麺屋 あがら', icon: '🍜', lat: 35.8130, lng: 139.6845, desc: '五差路交差点近くにある本格和歌山ラーメン専門店。濃厚な豚骨醤油スープとこだわりの麺が絡み合い、遠方からもラーメン好きが訪れます。' },
+      { id: 'ipal', category: '施設', name: 'あいパル', icon: '🏢', lat: 35.8172, lng: 139.6780, desc: '上戸田地域交流センター「あいパル」。地域活動、学び、図書室、カフェなど、市民が日常的に集い交流する戸田市の温かいコミュニティ拠点です。' },
+      { id: 'greenpark', category: '自然', name: '彩湖・道満グリーンパーク', icon: '🌳', lat: 35.8235, lng: 139.6380, desc: '彩湖に沿って広大な緑が広がる総合公園。バーベキュー、サイクリング、スポーツ、ドッグランなど、四季折々の自然の中で1日中リフレッシュできます。' },
+      { id: 'dote', category: '自然', name: '荒川土手', icon: '🚴', lat: 35.8035, lng: 139.6830, desc: '戸田公園から臨む広大な荒川河川敷。見晴らしの良い土手は、お散歩やランニング、夕日鑑賞の絶景スポットとして市民に親しまれています。' },
+      { id: 'matsuri', category: 'イベント', name: '戸田ふるさと祭り', icon: '🏮', lat: 35.8150, lng: 139.6800, desc: '夏の戸田市を代表する最大級のお祭り！出店、ステージパフォーマンス、地域のみこしなどが集結し、市全体が活気と熱気に包まれます。' },
+      { id: 'hanabi', category: 'イベント', name: '戸田橋花火大会', icon: '🎆', lat: 35.8030, lng: 139.6840, desc: '荒川を挟んで板橋区と同時開催される大迫力の花火大会。夜空を彩る大輪の花火と伝統の尺玉が、感動的な思い出を演出します。' }
+    ];
+
+    let currentSpot = null;
+    let videoStream = null;
+    let scanningActive = false;
+
+    const views = {
+      home: document.getElementById('homeView'),
+      scanner: document.getElementById('scannerView'),
+      book: document.getElementById('bookView'),
+      spot: document.getElementById('spotView')
+    };
+
+    const tabs = {
+      home: document.getElementById('tabHome'),
+      scanner: document.getElementById('tabScanner'),
+      book: document.getElementById('tabBook')
+    };
+
+    function showView(viewName) {
+      stopScanner();
+      Object.values(views).forEach(v => v.classList.remove('active'));
+      views[viewName].classList.add('active');
+
+      Object.values(tabs).forEach(t => t.classList.remove('active'));
+      if (tabs[viewName]) {
+        tabs[viewName].classList.add('active');
+      }
+
+      window.scrollTo(0, 0);
+    }
+
+    function getMyStamps() {
+      const saved = JSON.parse(localStorage.getItem('toda_my_stamps') || '[]');
+      const validIds = SPOTS.map(s => s.id);
+      return saved.filter(id => validIds.includes(id));
+    }
+
+    // ===== ① ホームタブ表示 =====
+    function openHomeView() {
+      const myStamps = getMyStamps();
+      const percent = Math.round((myStamps.length / SPOTS.length) * 100);
+      document.getElementById('homeCountBadge').textContent = `達成率: ${percent}%（${myStamps.length} / ${SPOTS.length}個）`;
+      window.history.replaceState({}, '', window.location.pathname);
+      showView('home');
+    }
+
+    // ===== ② スタンプ撮影タブ（QRスキャナー） =====
+    const qrVideo = document.getElementById('qrVideo');
+    const qrCanvas = document.getElementById('qrCanvas');
+    const qrCtx = qrCanvas.getContext('2d', { willReadFrequently: true });
+    const scannerStatus = document.getElementById('scannerStatus');
+
+    async function openScannerView() {
+      window.history.replaceState({}, '', window.location.pathname);
+      showView('scanner');
+      scannerStatus.style.color = '#555';
+      scannerStatus.innerHTML = 'カメラを起動しています...<br>許可を求められたら「許可」を押してください。';
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        qrVideo.srcObject = videoStream;
+        await qrVideo.play();
+        scanningActive = true;
+        scannerStatus.innerHTML = 'カメラをQRコードに向けてください。<br>枠内に収めると自動で読み取ります。';
+        requestAnimationFrame(scanFrame);
+      } catch (err) {
+        scannerStatus.style.color = 'red';
+        scannerStatus.innerHTML = '❌ カメラを起動できませんでした。<br>ブラウザのカメラ許可設定を確認するか、スマホの標準カメラアプリでQRコードを読み取ってください。';
+      }
+    }
+
+    function stopScanner() {
+      scanningActive = false;
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+    }
+
+    function scanFrame() {
+      if (!scanningActive) return;
+
+      if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+        qrCanvas.width = qrVideo.videoWidth;
+        qrCanvas.height = qrVideo.videoHeight;
+        qrCtx.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
+
+        const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+
+        if (code && code.data) {
+          handleScannedData(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(scanFrame);
+    }
+
+    function handleScannedData(data) {
+      stopScanner();
+      try {
+        const scannedUrl = new URL(data);
+        const spotId = scannedUrl.searchParams.get('spot');
+        if (spotId && SPOTS.some(s => s.id === spotId)) {
+          window.history.replaceState({}, '', `?spot=${spotId}`);
+          openSpotView(spotId);
+          return;
+        }
+      } catch (e) {}
+
+      if (data.startsWith('http://') || data.startsWith('https://')) {
+        window.location.href = data;
+      } else {
+        scannerStatus.style.color = 'red';
+        scannerStatus.textContent = 'このスタンプラリー用のQRコードではありません。';
+      }
+    }
+
+    // ===== ③ 記録確認タブ（スタンプ帳） =====
+    function openBookView() {
+      window.history.replaceState({}, '', window.location.pathname);
+      const myStamps = getMyStamps();
+      const count = myStamps.length;
+      const total = SPOTS.length;
+      const percent = Math.round((count / total) * 100);
+
+      document.getElementById('progressBar').style.width = percent + '%';
+      if (percent === 100) {
+        document.getElementById('progressText').textContent = `🎉 達成率 100%！全スポットコンプリート！`;
+      } else {
+        document.getElementById('progressText').textContent = `達成率: ${percent}%（${count} / ${total}個）`;
+      }
+
+      const stampGrid = document.getElementById('stampGrid');
+      stampGrid.innerHTML = '';
+      SPOTS.forEach(spot => {
+        const isAcquired = myStamps.includes(spot.id);
+        const item = document.createElement('div');
+        item.className = `stamp-item ${isAcquired ? 'active' : ''}`;
+        item.innerHTML = `
+          <div class="stamp-icon">${isAcquired ? '💮' : spot.icon}</div>
+          <div>${spot.name}</div>
+        `;
+        stampGrid.appendChild(item);
+      });
+
+      showView('book');
+    }
+
+    // ===== ④ スポット画面表示＆GPS判定 =====
+    const spotCategory = document.getElementById('spotCategory');
+    const spotTitle = document.getElementById('spotTitle');
+    const spotDescription = document.getElementById('spotDescription');
+    const scrollBox = document.getElementById('scrollBox');
+    const readCheckbox = document.getElementById('readCheckbox');
+    const checkboxLabel = document.getElementById('checkboxLabel');
+    const stampBtn = document.getElementById('stampBtn');
+    const statusMsg = document.getElementById('statusMsg');
+
+    function openSpotView(spotId) {
+      currentSpot = SPOTS.find(s => s.id === spotId) || SPOTS[0];
+
+      spotCategory.textContent = currentSpot.category;
+      spotTitle.textContent = `${currentSpot.icon} ${currentSpot.name}`;
+      spotDescription.innerHTML = `<p><strong>【${currentSpot.name}】</strong></p><p>${currentSpot.desc}</p>`;
+
+      scrollBox.scrollTop = 0;
+      statusMsg.textContent = '';
+
+      const myStamps = getMyStamps();
+      if (myStamps.includes(currentSpot.id)) {
+        readCheckbox.checked = true;
+        readCheckbox.disabled = true;
+        checkboxLabel.textContent = '説明を確認済みです';
+        stampBtn.disabled = true;
+        stampBtn.textContent = '獲得済みです';
+        stampBtn.classList.add('success');
+      } else {
+        readCheckbox.checked = false;
+        readCheckbox.disabled = true;
+        checkboxLabel.textContent = '最後まで読むとチェックできます';
+        stampBtn.disabled = true;
+        stampBtn.textContent = 'チェックを入れると押せます';
+        stampBtn.classList.remove('success');
+      }
+
+      showView('spot');
+    }
+
+    function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    scrollBox.addEventListener('scroll', () => {
+      if (!currentSpot || getMyStamps().includes(currentSpot.id)) return;
+      if (scrollBox.scrollTop + scrollBox.clientHeight >= scrollBox.scrollHeight - 20) {
+        readCheckbox.disabled = false;
+        checkboxLabel.textContent = '説明文を確認しました（チェックを入れる）';
+      }
+    });
+
+    readCheckbox.addEventListener('change', (e) => {
+      if (!currentSpot || getMyStamps().includes(currentSpot.id)) return;
+      if (e.target.checked) {
+        stampBtn.disabled = false;
+        stampBtn.textContent = `${currentSpot.name} のスタンプを獲得する`;
+      } else {
+        stampBtn.disabled = true;
+        stampBtn.textContent = 'チェックを入れると押せます';
+      }
+    });
+
+    stampBtn.addEventListener('click', () => {
+      if (!currentSpot) return;
+      stampBtn.disabled = true;
+      stampBtn.textContent = '位置情報を確認中...';
+
+      if (!navigator.geolocation) {
+        statusMsg.style.color = 'red';
+        statusMsg.textContent = '❌ お使いの端末は位置情報機能に対応していません。';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const distance = getDistanceInMeters(
+            position.coords.latitude,
+            position.coords.longitude,
+            currentSpot.lat,
+            currentSpot.lng
+          );
+          const ALLOWED_DISTANCE = 50; // 50m以内
+
+          if (distance <= ALLOWED_DISTANCE) {
+            const myStamps = getMyStamps();
+            if (!myStamps.includes(currentSpot.id)) {
+              myStamps.push(currentSpot.id);
+              localStorage.setItem('toda_my_stamps', JSON.stringify(myStamps));
+            }
+            statusMsg.style.color = 'green';
+            statusMsg.textContent = `🎉 現地チェックイン成功！（距離: 約${Math.round(distance)}m）下の「記録確認」タブから確認できます！`;
+            readCheckbox.disabled = true;
+            checkboxLabel.textContent = '説明を確認済みです';
+            stampBtn.disabled = true;
+            stampBtn.textContent = '獲得済みです';
+            stampBtn.classList.add('success');
+          } else {
+            statusMsg.style.color = 'red';
+            statusMsg.textContent = `📍 スポットから離れています（現在地から約${Math.round(distance)}m）。50m以内に近づいて押してください。`;
+            stampBtn.disabled = false;
+            stampBtn.textContent = `${currentSpot.name} のスタンプを獲得する`;
+          }
+        },
+        () => {
+          statusMsg.style.color = 'red';
+          statusMsg.textContent = '❌ 位置情報の取得に失敗しました。スマホのGPS設定をONにしてください。';
+          stampBtn.disabled = false;
+          stampBtn.textContent = `${currentSpot.name} のスタンプを獲得する`;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    tabs.home.addEventListener('click', openHomeView);
+    tabs.scanner.addEventListener('click', openScannerView);
+    tabs.book.addEventListener('click', openBookView);
+    document.getElementById('homeToScannerBtn').addEventListener('click', openScannerView);
+
+    const initialSpotId = new URLSearchParams(window.location.search).get('spot');
+    if (initialSpotId && SPOTS.some(s => s.id === initialSpotId)) {
+      openSpotView(initialSpotId);
+    } else {
+      openHomeView();
+    }
+  </script>
+</body>
+</html>
